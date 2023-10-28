@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QR Scanner with jQuery</title>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  <style>
+    #preview {
+      width: 100%;
+      max-width: 500px;
+      height: auto;
+      border: 1px solid #ccc;
+    }
+  </style>
+</head>
+
+<body>
+  <div style="display:flex;justify-content:center;align-items:center;flex-direction:column">
+    <video id="preview" playsinline></video>
+    <button id="startScan" style="padding:2rem">Start Scanning</button>
+    <p id="processing" style="display:none">ĐANG LẤY THÔNG TIN CHECK-IN...</p>
+  </div>
+
+
+  <script>
+    var isProcessing = false;
+    let video = $("#preview")[0];
+    let canvasElement = document.createElement("canvas");
+    let canvas = canvasElement.getContext("2d");
+
+    $("#startScan").click(function() {
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(function(stream) {
+            video.srcObject = stream;
+            video.play();
+            requestAnimationFrame(tick);
+        });
+    });
+
+    function tick() {
+        toggleProcessingMessage(isProcessing ? "block" : "none");
+        if (video.readyState === video.HAVE_ENOUGH_DATA && !isProcessing) {
+            canvasElement.height = video.videoHeight;
+            canvasElement.width = video.videoWidth;
+            canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+            let imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
+            let code = jsQR(imageData.data, imageData.width, imageData.height, {
+                inversionAttempts: "dontInvert",
+            });
+            if (code) {
+                isProcessing = true;
+                google.script.run
+                .withSuccessHandler(showSuccessMessage)
+                .withFailureHandler(showErrorMessage)
+                .handleQRCodeData(code.data);
+            } 
+        }
+        requestAnimationFrame(tick);
+    }
+
+    function showSuccessMessage(message) {
+      isProcessing = false;
+      alert(message);
+    }
+
+    fucntion showErrorMessage(message) {
+      isProcessing = false;
+      alert("Rất tiếc! Không tìm thấy thông tin đăng kí của bạn.");
+    }
+
+    function toggleProcessingMessage(displayMode) {
+      document.getElementById("processing").style.display = displayMode;
+    }
+  </script>
+
+</body>
+
+</html>
